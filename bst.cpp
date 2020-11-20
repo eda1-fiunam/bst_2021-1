@@ -1,19 +1,19 @@
-/*Copyright (C) 
+/*Copyright (C)
  * 2019 - eda1 dot fiunam @ yahoo dot com dot mx
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
  * of the License, or (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
- * 
+ *
  */
 
 
@@ -23,6 +23,11 @@
 
 #include <iostream>
 // para cout, cin, y cerr
+
+#include <fstream>
+// para usar archivos
+
+class Bst;
 
 
 //----------------------------------------------------------------------
@@ -60,7 +65,7 @@ Item::Item() : val{ 0 }
    std::ostream& // devolver una referencia a flujo permite encadenar comandos
 operator<<( std::ostream& os, const Item& item )
 {
-   os << item.val; 
+   os << item.val;
    // permitimos que el objeto llamador formatee la salida, por eso no ponemos
    // espacios en blanco, saltos de línea, etc.
 
@@ -110,6 +115,11 @@ public:
    bool Find( Item& item );
    void Traverse( Bst::Dir dir, void (*pfun)( Item& item ) );
    void Delete_all();
+
+   size_t Len() { return this->len; }
+
+   Node* Get_root();
+   // devuelve la referencia al nodo raíz
 };
 
 
@@ -159,7 +169,7 @@ void Bst::postorder( Node* node, void (*visit)( Item& item ) )
 //----------------------------------------------------------------------
 //                  Interfaz implementation
 //----------------------------------------------------------------------
-Bst::Bst() 
+Bst::Bst()
 {
    // nada
 }
@@ -199,15 +209,111 @@ void Bst::Traverse( Bst::Dir dir, void (*visit)( Item& item ) )
    }
 }
 
+Node* Bst::Get_root()
+{
+   return this->root;
+}
+
+
+//----------------------------------------------------------------------
+//  Para dibujar el árbol
+//----------------------------------------------------------------------
+
+#include <string>
+#include <vector>
+
+struct Vertex
+{
+   int data;
+   std::string name;
+   int left;
+   int right;
+
+   Vertex( int data, std::string name, int left, int right ) :
+      data{ data }, name{ name }, left{ left }, right{ right }
+   {
+      // nada
+   }
+};
+
+void draw_bst_rec( Node* node, std::vector<Vertex>& list )
+{
+   if( node == nullptr ) return;
+
+   draw_bst_rec( node->left, list );
+
+   list.push_back( Vertex(
+         node->item.val,
+         "node_" + std::to_string( node->item.val ),
+         node->left ? node->left->item.val : -1,
+         node->right ? node->right->item.val : -1 )
+      );
+
+   draw_bst_rec( node->right, list );
+}
+
+void draw_bst( Bst& tree )
+{
+   Node* root = tree.Get_root();
+
+   std::vector<Vertex> list;
+
+   draw_bst_rec( root, list );
+   // genera la lista de vértices
+
+   std::string file_name = "my_bst.dot";
+
+   std::fstream file;
+   file.open( file_name, std::ios::out );
+
+   if( not file ){
+      std::cerr << "Error creando al archivo: " << file_name << std::endl;
+      return;
+   }
+
+   file << "digraph g {\n" "node [shape=record];\n";
+
+
+   // crea las etiquetas:
+
+   for( auto& n : list ){
+      file << n.name + "[label=\"<f0>|<f1>";
+      file << std::to_string( n.data ) + "|<f2>\"];\n";
+   }
+
+
+   // crea las relaciones:
+
+   for( auto& n : list ){
+      if( n.left != -1 ){
+         file << "\"" + n.name << "\":f0 -> ";
+         file << "\"node_" << n.left << "\":f1;\n";
+      }
+
+      if( n.right != -1 ){
+         file << "\"" + n.name << "\":f2 -> ";
+         file << "\"node_" << n.right << "\":f1;\n";
+      }
+   }
+
+   file << "}\n";
+}
+
+
 // esta es la función que vamos a usar en cada 'visita'
 void print( Item& item )
 {
    std::cout << item.val << std::endl;
 
-   // ¿funciona?:
+   // ¿funciona?
    // std::cout << item << std::endl;
 }
 
+
+
+//----------------------------------------------------------------------
+//  Driver program
+//----------------------------------------------------------------------
 int main()
 {
    Bst arbol;
@@ -223,11 +329,11 @@ int main()
    arbol.Traverse( Bst::Dir::INORDER, print );
 
    std::cout << "\n=== PREORDER ===\n";
-   arbol.Traverse( 
-         Bst::Dir::PREORDER, 
+   arbol.Traverse(
+         Bst::Dir::PREORDER,
          [](Item& item)
-         { 
-            std::cout << item << std::endl; 
+         {
+            std::cout << item << std::endl;
          } );
 
    std::cout << "\n=== POSTORDER ===\n";
@@ -245,4 +351,20 @@ int main()
 
    // ¿y dónde está el destructor?
 
+
+   //draw_bst( arbol );
+   // para usar esta función debes tener instalado el programa "dot", el cual
+   // viene en el paquete graphviz:
+   //
+   //       $ sudo apt install graphviz
+   //
+   // Esta función genera un archivo my_bst.dot el cual tienes que renderizar
+   // con el programa "dot". Para obtener una imagen del grafo en formato png:
+   //
+   //       $ dot -Tpng my_bst.dot -omy_bst.png
+   //
+   // Pero si la quisieras como svg (más pequeña (en tamaño) y funcional):
+   //
+   //       $ dot -Tsvg my_bst.dot -omy_bst.svg
+   //
 }
